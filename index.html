@@ -1,0 +1,1831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grants.Gov PDF Secret Decoder Ring</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Light theme — clean warm paper, no patterning */
+  :root {
+    --bg: #f8f5ec;
+    --bg-panel: #fbf9f0;
+    --ink: #1a1a1a;
+    --ink-soft: #444;
+    --ink-faint: #888;
+    --rule: #c8c0a8;
+    --rule-soft: #e6e0cf;
+    --accent: #7a1a1a;
+    --accent-soft: #f0e3df;
+    --ok: #2a5d3a;
+    --warn: #8b5a11;
+    --shadow: none;
+    --mono: 'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
+    --sans: var(--mono);
+    --serif: var(--mono);
+    --bg-image: none;
+    --glow: none;
+    --caret: #7a1a1a;
+  }
+  /* Dark theme — subtler phosphor */
+  [data-theme="dark"] {
+    --bg: #06080a;
+    --bg-panel: #0a0e0a;
+    --ink: #8ec88e;
+    --ink-soft: #6fa86f;
+    --ink-faint: #436a43;
+    --rule: #2a4a2a;
+    --rule-soft: #15281a;
+    --accent: #d9a76a;
+    --accent-soft: #1a1305;
+    --ok: #a8d8a8;
+    --warn: #d9c06a;
+    --shadow: none;
+    --bg-image: repeating-linear-gradient(to bottom, transparent 0, transparent 3px, rgba(0,0,0,0.25) 3px, rgba(0,0,0,0.25) 4px);
+    --glow: 0 0 2px rgba(140, 200, 140, 0.18);
+    --caret: #d9a76a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--mono);
+    background: var(--bg);
+    background-image: var(--bg-image);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.55;
+    text-shadow: var(--glow);
+  }
+  ::selection { background: var(--ink); color: var(--bg); }
+  /* Terminal aesthetic — flatten corners, sharper edges */
+  button, .attach-card, .form-card, .profile-card, .doc-info, .info-block,
+  .summary-bar, .field-tree > .group, .drop-zone, .drop-zone-big, details,
+  .section-title .count, .summary-bar, .summary-bar .cell, .status, .preview-frame { border-radius: 0 !important; }
+  /* Headings: use mono everywhere */
+  h1, h2, h3 { font-family: var(--mono); }
+  /* Money keeps a mono+green feel that looks right on green-bar */
+  .field-tree .v.money, .data-table td.num, .kv-grid .v.money { color: var(--ok); }
+  header {
+    border-bottom: 1px solid var(--rule);
+    background: var(--bg-panel);
+    padding: 10px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  header .brand { display: flex; align-items: center; gap: 10px; }
+  header h1 {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  header h1::before { content: '> '; color: var(--accent); }
+  header .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-faint);
+    border: 1px solid var(--rule);
+    padding: 2px 7px;
+  }
+  header .meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .theme-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    padding: 4px 10px;
+    cursor: pointer;
+  }
+  .theme-btn:hover { background: var(--ink); color: var(--bg); }
+
+  /* Blinking caret */
+  @keyframes blink { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
+  .caret { display: inline-block; color: var(--caret); animation: blink 1s steps(2) infinite; font-weight: 700; }
+  main {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    height: calc(100vh - 45px);
+  }
+  /* Landing — shown until a PDF is loaded */
+  main.landing {
+    display: block;
+    overflow-y: auto;
+    height: calc(100vh - 45px);
+  }
+  main.landing > .sidebar, main.landing > .viewer { display: none !important; }
+  main:not(.landing) > #landing { display: none !important; }
+  .landing-inner {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px 28px 80px;
+  }
+  .banner {
+    font-family: var(--mono);
+    font-weight: 700;
+    text-align: center;
+    font-size: clamp(20px, 4vw, 34px);
+    letter-spacing: 0.06em;
+    line-height: 1.15;
+    color: var(--ink);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .banner-rule {
+    border: none;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    height: 4px;
+    margin: 14px auto 22px;
+    max-width: 540px;
+  }
+  .tagline {
+    text-align: center;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 28px;
+    font-style: italic;
+  }
+  .drop-zone-big {
+    border: 1px dashed var(--rule);
+    padding: 30px 18px;
+    text-align: center;
+    cursor: pointer;
+    background: var(--bg-panel);
+    transition: border-color 0.15s ease, background 0.15s ease;
+    margin: 0 auto 36px;
+    max-width: 600px;
+    display: block;
+  }
+  .drop-zone-big:hover, .drop-zone-big.dragover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  /* Children mustn't fire dragenter/dragleave — keeps the highlight stable */
+  .drop-zone-big * { pointer-events: none; }
+  .drop-zone-big .arrow {
+    font-size: 18px;
+    margin-bottom: 6px;
+    letter-spacing: 0.4em;
+  }
+  .drop-zone-big .label {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .drop-zone-big .hint {
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-top: 6px;
+    letter-spacing: 0.04em;
+  }
+
+  .faq { max-width: 600px; margin: 0 auto; }
+  .faq h2 {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 26px 0 8px;
+    color: var(--ink);
+  }
+  .faq h2::before { content: '▮ '; color: var(--accent); }
+  .faq p {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+  .faq .colophon {
+    margin-top: 38px;
+    border-top: 1px dashed var(--rule);
+    padding-top: 14px;
+    font-size: 11px;
+    color: var(--ink-faint);
+    text-align: center;
+    letter-spacing: 0.04em;
+  }
+  .sidebar {
+    border-right: 1px solid var(--rule);
+    background: var(--bg-panel);
+    overflow-y: auto;
+    padding: 22px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .viewer {
+    overflow-y: auto;
+    padding: 28px 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scroll::-webkit-scrollbar-track { background: transparent; }
+  .scroll::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 4px; }
+
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .section-title .bar {
+    background: var(--ink);
+    color: var(--bg);
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    padding: 3px 7px;
+    text-transform: uppercase;
+  }
+  .section-title h2 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: -0.005em;
+  }
+  .section-title .count {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    border: 1px solid var(--rule);
+    padding: 1px 6px;
+    border-radius: 2px;
+    margin-left: auto;
+  }
+
+  .drop-zone {
+    border: 1.5px dashed var(--rule);
+    border-radius: 4px;
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    background: var(--bg);
+    transition: all 0.15s ease;
+    display: block;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .drop-zone .icon {
+    font-size: 28px;
+    color: var(--ink-faint);
+    margin-bottom: 6px;
+    font-family: var(--serif);
+  }
+  .drop-zone .label {
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .drop-zone .hint {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    margin-top: 6px;
+    letter-spacing: 0.04em;
+  }
+  #file-input { display: none; }
+
+  .doc-info {
+    background: var(--bg);
+    border: 1px solid var(--rule-soft);
+    border-radius: 3px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .doc-info .row {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 8px;
+    padding: 3px 0;
+  }
+  .doc-info .row:not(:last-child) {
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .doc-info .k {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    align-self: center;
+  }
+  .doc-info .v {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink);
+    word-break: break-word;
+  }
+  .doc-info .v.ok { color: var(--ok); }
+  .doc-info .v.warn { color: var(--warn); }
+  .doc-info .v.faint { color: var(--ink-faint); }
+
+  .status {
+    padding: 8px 12px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-family: var(--mono);
+    border-left: 3px solid;
+  }
+  .status.info { background: #f0f4f8; border-color: #4a6fa5; color: #2c4870; }
+  .status.ok { background: #e8f5ed; border-color: var(--ok); color: var(--ok); }
+  .status.warn { background: #fcf6e6; border-color: var(--warn); color: #7a5a13; }
+  .status.err { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+  .big-heading {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 6px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .big-heading .count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    border: 1px solid var(--rule);
+    padding: 1px 7px;
+    border-radius: 2px;
+    margin-left: auto;
+  }
+
+  .attach-card {
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    background: var(--bg-panel);
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+  .attach-card .head {
+    padding: 10px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--rule-soft);
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 4px 12px;
+    align-items: center;
+  }
+  .attach-card .head .name {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink);
+    word-break: break-all;
+    grid-column: 1;
+  }
+  .attach-card .head .meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    grid-column: 1;
+    letter-spacing: 0.03em;
+  }
+  .attach-card .head .toggle { grid-column: 2; grid-row: 1 / 3; }
+  .attach-card .head .save { grid-column: 3; grid-row: 1 / 3; }
+  .attach-card .preview-frame {
+    width: 100%;
+    height: 720px;
+    border: none;
+    display: block;
+    background: var(--bg);
+  }
+  .attach-card.collapsed .preview-frame { display: none; }
+
+  button {
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 7px 14px;
+    background: var(--ink);
+    color: var(--bg);
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  button:hover { background: var(--accent); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.secondary {
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+  }
+  button.secondary:hover { background: var(--rule-soft); border-color: var(--ink-soft); }
+  button.small { padding: 4px 10px; font-size: 11px; }
+
+  /* Tufte-style minimal layout */
+  .summary-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 28px;
+    margin-bottom: 26px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .summary-bar .cell { display: flex; align-items: baseline; gap: 8px; }
+  .summary-bar .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+  }
+  .summary-bar .value { font-size: 14px; color: var(--ink); }
+  .summary-bar .value.big { font-size: 16px; font-weight: 700; color: var(--ok); }
+
+  .section-head {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    margin: 24px 0 8px;
+    font-weight: 600;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  .data-table th {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    text-align: left;
+    padding: 4px 14px 6px 0;
+    border-bottom: 1px solid var(--ink);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .data-table th.num, .data-table td.num {
+    text-align: right;
+    padding-left: 14px;
+    padding-right: 0;
+  }
+  .data-table td {
+    padding: 5px 14px 5px 0;
+    font-size: 13px;
+    color: var(--ink);
+    vertical-align: baseline;
+  }
+  .data-table tr.total td {
+    border-top: 1px solid var(--ink);
+    padding-top: 7px;
+    font-weight: 600;
+    color: var(--ok);
+  }
+  .data-table tr.total td:first-child {
+    color: var(--ink);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* kv list, label-then-value inline */
+  .kv-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-bottom: 8px;
+  }
+  .kv-list .row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 2px 0;
+  }
+  .kv-list .k {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+    flex: 0 0 auto;
+    min-width: 110px;
+  }
+  .kv-list .v { font-size: 13px; color: var(--ink); flex: 1; word-break: break-word; }
+  .kv-list .v.money { color: var(--ok); }
+
+  /* Person header — name then role inline */
+  .person {
+    margin: 28px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .person .who { font-size: 18px; font-weight: 700; color: var(--ink); }
+  .person .role {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+  }
+
+  /* Field tree */
+  .field-tree { font-family: var(--sans); font-size: 13px; }
+  .field-tree > .group {
+    background: var(--bg-panel);
+    border: 1px solid var(--rule-soft);
+    border-radius: 4px;
+    padding: 14px 18px;
+    margin-bottom: 14px;
+  }
+  .field-tree > .group > .group-name {
+    font-family: var(--serif);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+  }
+  .field-tree .group .group {
+    border-left: 2px solid var(--rule-soft);
+    padding-left: 12px;
+    margin: 8px 0 8px 4px;
+  }
+  .field-tree .group .group .group-name {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    font-weight: 600;
+    margin: 4px 0 4px;
+  }
+  .field-tree .row {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding: 4px 0;
+    border-bottom: 1px dotted var(--rule-soft);
+    flex-wrap: wrap;
+  }
+  .field-tree .row:last-child { border-bottom: none; }
+  .field-tree .k {
+    color: var(--ink-faint);
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    flex: 0 0 auto;
+    min-width: 140px;
+  }
+  .field-tree .v {
+    font-family: var(--serif);
+    font-size: 14px;
+    color: var(--ink);
+    word-break: break-word;
+    flex: 1 1 0;
+  }
+  .field-tree .v.money {
+    color: var(--ok);
+    font-weight: 600;
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .field-tree .v.empty { color: var(--ink-faint); font-style: italic; }
+  .field-tree .v.long {
+    flex-basis: 100%;
+    background: var(--bg);
+    border-left: 2px solid var(--rule-soft);
+    padding: 6px 10px;
+    margin-top: 2px;
+    white-space: pre-wrap;
+    font-family: var(--sans);
+    font-size: 13px;
+  }
+
+  /* Pages */
+  .empty-viewer {
+    color: var(--ink-faint);
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 16px;
+    text-align: center;
+    margin: auto;
+    max-width: 360px;
+    line-height: 1.6;
+  }
+  .empty-viewer .deco {
+    font-size: 36px;
+    color: var(--rule);
+    margin-bottom: 12px;
+  }
+  .page-card {
+    background: white;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--rule-soft);
+    position: relative;
+  }
+  .page-card canvas { display: block; }
+  .page-label {
+    position: absolute;
+    top: -20px;
+    left: 0;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .xfa-frame {
+    width: 100%;
+    max-width: 920px;
+    background: white;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--rule-soft);
+    min-height: 800px;
+  }
+
+  details {
+    border: 1px solid var(--rule-soft);
+    border-radius: 3px;
+    padding: 8px 12px;
+    background: var(--bg);
+  }
+  details summary {
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    user-select: none;
+  }
+  details[open] summary { margin-bottom: 8px; }
+  details pre {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-soft);
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 280px;
+  }
+  .info-block {
+    font-size: 12px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+    background: var(--bg);
+    border-left: 2px solid var(--rule);
+    padding: 8px 12px;
+    border-radius: 0 3px 3px 0;
+  }
+  .info-block strong { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Grants.Gov PDF Secret Decoder Ring</h1>
+    <span class="tag">v1 · local-only</span>
+  </div>
+  <div style="display: flex; gap: 12px; align-items: center;">
+    <span class="meta" id="header-meta">no file loaded</span>
+    <button id="btn-reset" class="theme-btn" style="display: none">[ new file ]</button>
+    <button id="btn-theme" class="theme-btn">[ dark ]</button>
+  </div>
+</header>
+
+<main id="main" class="landing">
+  <!-- Landing screen — shown until a PDF is loaded -->
+  <div class="landing-inner" id="landing">
+    <h1 class="banner">Grants.Gov PDF<br>Secret Decoder Ring</h1>
+    <hr class="banner-rule">
+    <p class="tagline">For the PDFs Acrobat reads and Preview won't. <span class="caret">▮</span></p>
+
+    <label for="file-input" class="drop-zone-big" id="drop-zone">
+      <div class="arrow">↓ ↓ ↓</div>
+      <div class="label">Drop PDF here · or click</div>
+      <div class="hint">file stays in your browser; nothing uploaded</div>
+    </label>
+    <input type="file" id="file-input" accept="application/pdf,.pdf" style="display:none">
+
+    <section class="faq">
+      <h2>Q · What is this?</h2>
+      <p>
+        A reader for grant-application PDFs. Specifically: forms downloaded from Grants.Gov,
+        which most PDF readers can't show. They open blank, or display a polite request to install
+        Adobe Reader 8. This page reads them anyway.
+      </p>
+
+      <h2>Q · Why won't Preview, Chrome, Firefox open my form?</h2>
+      <p>
+        The form is <strong>XFA</strong> — XML Forms Architecture, an Adobe technology from 2003.
+        Adobe killed XFA support in 2020 (security headaches), but the federal grant system still
+        uses it. Acrobat reads XFA. Almost nothing else does.
+      </p>
+
+      <h2>Q · What does the Decoder show me?</h2>
+      <p>
+        The values from the form: budget tables, key personnel, organizations, dates. Plus it
+        extracts the embedded PDF attachments — biosketches, budget justifications,
+        current-and-pending-support documents — and previews each one inline. No Acrobat needed.
+      </p>
+
+      <h2>Q · Which forms are supported?</h2>
+      <p>
+        Specialized layouts for the SF-424 R&amp;R family —
+        <strong>R&amp;R Budget</strong> (RR_Budget_3_0) and
+        <strong>R&amp;R Senior/Key Person Profile</strong> (RR_KeyPerson_3_0).
+        Other XFA forms fall back to a generic field-tree view; values still appear, just less polished.
+      </p>
+
+      <h2>Q · Does my file leave the browser?</h2>
+      <p>
+        No. Everything happens in this tab. Open the Network panel in your dev tools and
+        you'll see no requests going out. The whole tool is one HTML file; you can read the source.
+      </p>
+
+      <h2>Q · Why are there no rendered pages of the original PDF?</h2>
+      <p>
+        XFA forms have no rendered page baked in. Acrobat builds the layout at runtime from a
+        schema, the way LaTeX builds a PDF from source. We skip the layout step and show you
+        the data directly.
+      </p>
+
+      <p class="colophon">
+        Single HTML file · client-side · TANSTAAFL
+      </p>
+    </section>
+  </div>
+
+  <!-- Sidebar (revealed after PDF load) -->
+  <aside class="sidebar scroll" id="sidebar" style="display:none">
+    <section>
+      <div class="section-title"><span class="bar">A</span><h2>Source</h2></div>
+      <label for="file-input" class="drop-zone" id="drop-zone-mini">
+        <div class="icon">↧</div>
+        <div class="label">Drop another PDF</div>
+        <div class="hint">replaces current file</div>
+      </label>
+    </section>
+
+    <div id="status-area"></div>
+
+    <section id="doc-info-section" style="display:none">
+      <div class="section-title"><span class="bar">B</span><h2>Document</h2></div>
+      <div class="doc-info" id="doc-info"></div>
+    </section>
+
+    <section id="raw-section" style="display:none">
+      <div class="section-title"><span class="bar">C</span><h2>Raw</h2></div>
+      <details>
+        <summary>Datasets XML</summary>
+        <pre id="raw-xml"></pre>
+      </details>
+    </section>
+
+    <section>
+      <div class="section-title"><span class="bar">·</span><h2>About</h2></div>
+      <div class="info-block">
+        Reads <strong>XFA</strong> grant forms (grants.gov RR_Budget, RR_KeyPerson, etc.)
+        without Adobe Acrobat. Form values appear at right, embedded files preview inline.
+      </div>
+    </section>
+  </aside>
+
+  <section class="viewer scroll" id="viewer">
+    <div class="empty-viewer" id="empty-state">
+      <div class="deco">¶</div>
+      Drop a PDF on the left.<br>
+      Field values and embedded attachments appear here.
+    </div>
+
+    <section id="form-section" style="display:none">
+      <div class="big-heading" id="form-heading">Form Values</div>
+      <div id="field-tree" class="field-tree"></div>
+    </section>
+
+    <section id="attach-section" style="display:none">
+      <div class="big-heading"><span>Attachments</span><span class="count" id="attach-count">0</span></div>
+      <div id="attach-list"></div>
+    </section>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+
+<script>
+  // =================================================================
+  // State
+  // =================================================================
+  const state = {
+    rawBytes: null,
+    pdfDoc: null,        // pdf.js document
+    pdflibDoc: null,     // pdf-lib document (for digging)
+    fileName: 'document.pdf',
+    datasetsXml: null,
+    attachments: [],     // {name, mimeType, bytes, source}
+    claimedAttachments: new Set(),
+    blobUrls: [],        // for cleanup
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const enc = new TextEncoder();
+  const dec = new TextDecoder('utf-8');
+
+  // =================================================================
+  // Status
+  // =================================================================
+  function setStatus(kind, msg) {
+    const el = document.createElement('div');
+    el.className = `status ${kind}`;
+    el.textContent = msg;
+    const area = $('status-area');
+    area.innerHTML = '';
+    area.appendChild(el);
+    if (kind !== 'err') setTimeout(() => { if (el.parentNode) el.remove(); }, 5000);
+  }
+  function clearStatus() { $('status-area').innerHTML = ''; }
+
+  // =================================================================
+  // File handling
+  // =================================================================
+  function setupDropZone() {
+    const fi = $('file-input');
+    fi.addEventListener('change', (e) => {
+      if (e.target.files[0]) handleFile(e.target.files[0]);
+    });
+    // Body-level drag-and-drop so any spot on the page accepts the file
+    ['dragenter', 'dragover'].forEach(ev =>
+      document.addEventListener(ev, (e) => { e.preventDefault(); }));
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const f = e.dataTransfer.files[0];
+      if (f) handleFile(f);
+    });
+    // Visual hover on the actual drop zones
+    for (const id of ['drop-zone', 'drop-zone-mini']) {
+      const dz = $(id);
+      if (!dz) continue;
+      ['dragenter', 'dragover'].forEach(ev =>
+        dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add('dragover'); }));
+      ['dragleave', 'drop'].forEach(ev =>
+        dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove('dragover'); }));
+    }
+  }
+
+  function setupTheme() {
+    const saved = localStorage.getItem('decoder-theme');
+    const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const theme = saved || (sysDark ? 'dark' : 'light');
+    applyTheme(theme);
+    $('btn-theme').addEventListener('click', () => {
+      const cur = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = cur === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      localStorage.setItem('decoder-theme', next);
+    });
+  }
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    const btn = $('btn-theme');
+    if (btn) btn.textContent = t === 'dark' ? '[ light ]' : '[ dark ]';
+  }
+
+  function setupReset() {
+    $('btn-reset').addEventListener('click', () => {
+      state.rawBytes = null;
+      state.pdfDoc = null;
+      state.pdflibDoc = null;
+      resetUI();
+      $('main').classList.add('landing');
+      $('sidebar').style.display = 'none';
+      $('btn-reset').style.display = 'none';
+      $('header-meta').textContent = 'no file loaded';
+    });
+  }
+
+  function showDataView() {
+    $('main').classList.remove('landing');
+    $('sidebar').style.display = '';
+    $('btn-reset').style.display = '';
+  }
+
+  async function handleFile(file) {
+    if (!file.type.includes('pdf') && !file.name.toLowerCase().endsWith('.pdf')) {
+      setStatus('err', 'Not a PDF file.');
+      return;
+    }
+    state.fileName = file.name;
+    clearStatus();
+    setStatus('info', `Loading ${file.name}…`);
+    resetUI();
+
+    try {
+      const buf = await file.arrayBuffer();
+      state.rawBytes = new Uint8Array(buf);
+
+      // Parallel: pdf-lib parse, pdf.js parse
+      const pdflibPromise = PDFLib.PDFDocument.load(state.rawBytes.slice(), {
+        ignoreEncryption: true,
+        throwOnInvalidObject: false,
+      });
+      const pdfjsPromise = pdfjsLib.getDocument({
+        data: state.rawBytes.slice(),
+        enableXfa: true,
+      }).promise;
+
+      state.pdflibDoc = await pdflibPromise;
+      state.pdfDoc = await pdfjsPromise;
+
+      showDataView();
+      $('header-meta').textContent = file.name.length > 50 ? file.name.slice(0, 50) + '…' : file.name;
+      await analyzeAndRender();
+      setStatus('ok', 'Decode complete.');
+    } catch (e) {
+      console.error(e);
+      setStatus('err', `Failed to load: ${e.message}`);
+    }
+  }
+
+  function resetUI() {
+    state.datasetsXml = null;
+    state.attachments = [];
+    state.claimedAttachments = new Set();
+    for (const u of state.blobUrls) URL.revokeObjectURL(u);
+    state.blobUrls = [];
+    $('doc-info-section').style.display = 'none';
+    $('attach-section').style.display = 'none';
+    $('form-section').style.display = 'none';
+    $('raw-section').style.display = 'none';
+    $('field-tree').innerHTML = '';
+    $('attach-list').innerHTML = '';
+    const empty = $('empty-state');
+    if (empty) empty.style.display = 'none';
+  }
+
+  // =================================================================
+  // Analyze
+  // =================================================================
+  async function analyzeAndRender() {
+    const info = await collectDocInfo();
+    renderDocInfo(info);
+
+    state.datasetsXml = extractDatasetsXml();
+    if (state.datasetsXml) {
+      $('raw-section').style.display = '';
+      $('raw-xml').textContent = state.datasetsXml.length > 50000
+        ? state.datasetsXml.slice(0, 50000) + '\n\n…(truncated, ' + state.datasetsXml.length + ' chars total)'
+        : state.datasetsXml;
+      renderFieldTree(state.datasetsXml);
+    }
+
+    const attachments = collectAttachments();
+    state.attachments = attachments;
+    renderAttachments(attachments);
+  }
+
+  async function collectDocInfo() {
+    const meta = await state.pdfDoc.getMetadata().catch(() => null);
+    const numPages = state.pdfDoc.numPages;
+    const ctx = state.pdflibDoc.context;
+    const root = ctx.lookup(ctx.trailerInfo.Root);
+    const acroForm = root && root.lookup ? root.lookup(PDFLib.PDFName.of('AcroForm')) : null;
+    const xfaArr = acroForm && acroForm.lookup ? acroForm.lookup(PDFLib.PDFName.of('XFA')) : null;
+    const needsRendering = root && root.lookup ? root.lookup(PDFLib.PDFName.of('NeedsRendering')) : null;
+
+    let formType = 'none';
+    if (xfaArr) formType = 'XFA';
+    else if (acroForm) {
+      const fields = acroForm.lookup(PDFLib.PDFName.of('Fields'));
+      if (fields && fields.array && fields.array.length > 0) formType = 'AcroForm';
+    }
+
+    return {
+      pages: numPages,
+      title: meta?.info?.Title || '',
+      producer: meta?.info?.Producer || '',
+      formType,
+      needsRendering: !!needsRendering,
+      filename: state.fileName,
+    };
+  }
+
+  function renderDocInfo(info) {
+    const rows = [
+      ['File', info.filename],
+      ['Pages', String(info.pages)],
+      ['Form', info.formType, info.formType === 'XFA' ? 'ok' : (info.formType === 'none' ? 'faint' : '')],
+    ];
+    if (info.title) rows.push(['Title', info.title]);
+    if (info.producer) rows.push(['Producer', info.producer]);
+    if (info.needsRendering) rows.push(['NeedsRender', 'true', 'warn']);
+    const html = rows.map(([k, v, cls]) =>
+      `<div class="row"><div class="k">${k}</div><div class="v ${cls || ''}">${escapeHtml(v)}</div></div>`
+    ).join('');
+    $('doc-info').innerHTML = html;
+    $('doc-info-section').style.display = '';
+  }
+
+  // =================================================================
+  // XFA datasets extraction
+  // =================================================================
+  function extractDatasetsXml() {
+    const ctx = state.pdflibDoc.context;
+    const root = ctx.lookup(ctx.trailerInfo.Root);
+    if (!root || !root.lookup) return null;
+    const acroForm = root.lookup(PDFLib.PDFName.of('AcroForm'));
+    if (!acroForm || !acroForm.lookup) return null;
+    const xfa = acroForm.lookup(PDFLib.PDFName.of('XFA'));
+    if (!xfa) return null;
+
+    // XFA is either a stream (whole packet) or array of [name, stream] pairs
+    let datasetsBytes = null;
+
+    if (xfa instanceof PDFLib.PDFArray) {
+      const arr = xfa.asArray();
+      for (let i = 0; i < arr.length; i += 2) {
+        const nameObj = arr[i] instanceof PDFLib.PDFRef ? ctx.lookup(arr[i]) : arr[i];
+        const streamRef = arr[i + 1];
+        const streamObj = streamRef instanceof PDFLib.PDFRef ? ctx.lookup(streamRef) : streamRef;
+        const name = pdfStringValue(nameObj);
+        if (name === 'datasets') {
+          datasetsBytes = decodeStream(streamObj);
+          break;
+        }
+      }
+    } else if (xfa instanceof PDFLib.PDFRawStream || (xfa.contents !== undefined)) {
+      // Whole-packet form — try to find <xfa:datasets within
+      const all = decodeStream(xfa);
+      const text = dec.decode(all);
+      const m = text.match(/<xfa:datasets[\s\S]*?<\/xfa:datasets>/);
+      if (m) return m[0];
+      return null;
+    }
+
+    if (!datasetsBytes) return null;
+    return dec.decode(datasetsBytes);
+  }
+
+  function decodeStream(streamObj) {
+    if (!streamObj) return null;
+    let raw;
+    if (streamObj.contents) raw = streamObj.contents;
+    else if (streamObj.getContents) raw = streamObj.getContents();
+    else return null;
+
+    // Check Filter
+    const dict = streamObj.dict;
+    let filter = '';
+    if (dict) {
+      const f = dict.get(PDFLib.PDFName.of('Filter'));
+      if (f) {
+        if (f instanceof PDFLib.PDFArray) filter = f.asArray().map(x => x.toString()).join(',');
+        else filter = f.toString();
+      }
+    }
+
+    if (filter && filter.includes('FlateDecode')) {
+      try { return pako.inflate(raw); }
+      catch (e) { console.warn('inflate failed', e); return raw; }
+    }
+    return raw;
+  }
+
+  // =================================================================
+  // Field tree rendering
+  // =================================================================
+  function renderFieldTree(xmlStr) {
+    let doc;
+    try {
+      doc = new DOMParser().parseFromString(xmlStr, 'text/xml');
+    } catch (e) {
+      $('form-section').style.display = '';
+      $('field-tree').innerHTML = `<div class="status err">XML parse error: ${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    const err = doc.querySelector('parsererror');
+    if (err) {
+      $('form-section').style.display = '';
+      $('field-tree').innerHTML = `<div class="status err">XML parse error</div>`;
+      return;
+    }
+
+    // Find <xfa:data> root
+    let dataNode = doc.documentElement;
+    if (dataNode.localName === 'datasets') {
+      const data = Array.from(dataNode.childNodes).find(
+        n => n.nodeType === 1 && n.localName === 'data'
+      );
+      if (data) dataNode = data;
+    }
+    // Skip generic wrapper levels — descend until we hit a known form root
+    const wrapperNames = new Set(['GrantApplicationWrapper', 'GrantApplication', 'Forms']);
+    while (dataNode && (dataNode.children.length === 1 || wrapperNames.has(dataNode.localName))) {
+      // descend into the most-populated child
+      const kids = Array.from(dataNode.children);
+      if (kids.length === 0) break;
+      let next = kids[0];
+      let bestCount = next.getElementsByTagName('*').length;
+      for (const k of kids) {
+        const c = k.getElementsByTagName('*').length;
+        if (c > bestCount) { next = k; bestCount = c; }
+      }
+      dataNode = next;
+    }
+
+    // Update heading from detected form type
+    const formMap = {
+      'RR_Budget_3_0': 'RR Budget (Research & Related)',
+      'RR_KeyPerson_3_0': 'RR Key Personnel Profile',
+      'HumanSubjectStudy_3_0': 'Human Subjects Study',
+      'HumanSubjectStudy': 'Human Subjects Study',
+    };
+    const formName = dataNode.localName;
+    const heading = formMap[formName] || prettyName(formName);
+    $('form-heading').textContent = heading;
+
+    let html;
+    if (formName === 'RR_Budget_3_0') html = renderBudgetForm(dataNode);
+    else if (formName === 'RR_KeyPerson_3_0') html = renderKeyPersonForm(dataNode);
+    else html = renderNode(dataNode, true).html || '<div class="info-block">No values found.</div>';
+
+    $('field-tree').innerHTML = html;
+    wireInlineAttachmentButtons($('field-tree'));
+    $('form-section').style.display = '';
+  }
+
+  // Helpers: find descendants by localName
+  function child(parent, name) {
+    for (const c of parent.children) if (c.localName === name) return c;
+    return null;
+  }
+  function children(parent, name) {
+    const out = [];
+    for (const c of parent.children) if (c.localName === name) out.push(c);
+    return out;
+  }
+  function deep(parent, name) {
+    const all = parent.getElementsByTagName('*');
+    for (const el of all) if (el.localName === name) return el;
+    return null;
+  }
+  function txt(el, name) {
+    if (!el) return '';
+    const target = name ? deep(el, name) : el;
+    return target ? (target.textContent || '').trim() : '';
+  }
+  function money(s) {
+    if (!s || !/^-?\d+(\.\d+)?$/.test(s)) return s || '';
+    return Number(s).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  }
+
+  function inlinePdfBlock(filename) {
+    if (!filename) return '';
+    const a = state.attachments.find(x => x.name === filename);
+    if (!a) return `<div class="info-block">Attachment "${escapeHtml(filename)}" referenced but not embedded.</div>`;
+    state.claimedAttachments.add(filename);
+    const blob = new Blob([a.bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    state.blobUrls.push(url);
+    const sizeKb = (a.bytes.length / 1024).toFixed(0);
+    return `
+      <div class="attach-card" data-file="${escapeHtml(filename)}">
+        <div class="head">
+          <div class="name">${escapeHtml(filename)}</div>
+          <div class="meta">application/pdf · ${sizeKb} KB · embedded</div>
+          <button class="secondary small toggle" data-action="toggle">Hide preview</button>
+          <button class="small save" data-action="save">Save</button>
+        </div>
+        <iframe class="preview-frame" src="${url}" title="${escapeHtml(filename)}"></iframe>
+      </div>`;
+  }
+
+  // Wire up inline attachment buttons after innerHTML is set
+  function wireInlineAttachmentButtons(rootEl) {
+    rootEl.querySelectorAll('.attach-card[data-file]').forEach(card => {
+      const fname = card.getAttribute('data-file');
+      const a = state.attachments.find(x => x.name === fname);
+      if (!a) return;
+      card.querySelector('[data-action="save"]').addEventListener('click', () => saveAttachment(a));
+      const tgl = card.querySelector('[data-action="toggle"]');
+      tgl.addEventListener('click', () => {
+        card.classList.toggle('collapsed');
+        tgl.textContent = card.classList.contains('collapsed') ? 'Show preview' : 'Hide preview';
+      });
+    });
+  }
+
+  // =================================================================
+  // RR Budget renderer
+  // =================================================================
+  function renderBudgetForm(root) {
+    const budgetType = txt(root, 'BudgetType');
+    const orgName = txt(root, 'OrganizationName');
+    const by = child(root, 'BudgetYear');
+    const startDate = txt(by, 'BudgetPeriodStartDate');
+    const endDate = txt(by, 'BudgetPeriodEndDate');
+    const totalCosts = txt(by, 'TotalCosts');
+    const totalCostsFee = txt(by, 'TotalCostsFee');
+    const directCosts = txt(by, 'DirectCosts');
+
+    const kpRoot = child(by, 'KeyPersons');
+    const kpList = kpRoot ? children(kpRoot, 'KeyPerson') : [];
+    let leadName = '';
+    if (kpList.length) {
+      const n = child(kpList[0], 'Name');
+      leadName = `${txt(n, 'FirstName')} ${txt(n, 'LastName')}`.trim();
+    }
+
+    let out = '';
+
+    // Summary bar — one line, label-value pairs
+    out += `<div class="summary-bar">`;
+    if (leadName) out += summaryCell('Lead PI', leadName);
+    if (orgName) out += summaryCell('Organization', orgName);
+    if (budgetType) out += summaryCell('Type', budgetType);
+    if (startDate || endDate) out += summaryCell('Period', `${startDate || '—'} → ${endDate || '—'}`);
+    if (totalCosts) out += summaryCell('Total', money(totalCosts), 'big');
+    out += `</div>`;
+
+    // Key Persons table
+    if (kpList.length) {
+      out += `<div class="section-head">Senior / Key Persons</div>`;
+      out += `<table class="data-table"><thead><tr>
+        <th>Name</th><th>Role</th>
+        <th class="num">Cal Mo</th><th class="num">Acad Mo</th><th class="num">Sum Mo</th>
+        <th class="num">Salary</th><th class="num">Fringe</th><th class="num">Total</th>
+      </tr></thead><tbody>`;
+      for (const kp of kpList) {
+        const n = child(kp, 'Name');
+        const fn = txt(n, 'FirstName');
+        const ln = txt(n, 'LastName');
+        out += `<tr>
+          <td>${escapeHtml((fn + ' ' + ln).trim())}</td>
+          <td>${escapeHtml(txt(kp, 'ProjectRole'))}</td>
+          <td class="num">${escapeHtml(txt(kp, 'CalendarMonths'))}</td>
+          <td class="num">${escapeHtml(txt(kp, 'AcademicMonths'))}</td>
+          <td class="num">${escapeHtml(txt(kp, 'SummerMonths'))}</td>
+          <td class="num">${escapeHtml(money(txt(kp, 'RequestedSalary')))}</td>
+          <td class="num">${escapeHtml(money(txt(kp, 'FringeBenefits')))}</td>
+          <td class="num">${escapeHtml(money(txt(kp, 'FundsRequested')))}</td>
+        </tr>`;
+      }
+      const totalKp = txt(kpRoot, 'TotalFundForKeyPersons');
+      if (totalKp) out += `<tr class="total"><td colspan="7">Total compensation</td><td class="num">${escapeHtml(money(totalKp))}</td></tr>`;
+      out += `</tbody></table>`;
+    }
+
+    // Equipment
+    const eq = child(by, 'Equipment');
+    if (eq) {
+      const items = children(eq, 'EquipmentList').filter(it => txt(it, 'EquipmentItem') || txt(it, 'FundsRequested'));
+      if (items.length) {
+        out += `<div class="section-head">Equipment</div><table class="data-table">
+          <thead><tr><th>Item</th><th class="num">Funds Requested</th></tr></thead><tbody>`;
+        for (const it of items) out += `<tr><td>${escapeHtml(txt(it, 'EquipmentItem'))}</td><td class="num">${escapeHtml(money(txt(it, 'FundsRequested')))}</td></tr>`;
+        const totEq = txt(eq, 'TotalFund');
+        if (totEq) out += `<tr class="total"><td>Total equipment</td><td class="num">${escapeHtml(money(totEq))}</td></tr>`;
+        out += `</tbody></table>`;
+      }
+    }
+
+    // Travel
+    const travel = child(by, 'Travel');
+    if (travel) {
+      const dom = txt(travel, 'DomesticTravelCost');
+      const foreign = txt(travel, 'ForeignTravelCost');
+      const totT = txt(travel, 'TotalTravelCost');
+      if (dom || foreign || totT) {
+        out += `<div class="section-head">Travel</div><div class="kv-list">`;
+        if (dom) out += kvRow('Domestic', money(dom), true);
+        if (foreign) out += kvRow('Foreign', money(foreign), true);
+        if (totT) out += kvRow('Total', money(totT), true);
+        out += `</div>`;
+      }
+    }
+
+    // Participant / Trainee
+    const ptsc = child(by, 'ParticipantTraineeSupportCosts');
+    if (ptsc) {
+      const fields = ['Tuition','Stipends','TravelCost','Subsistence','NumberOfParticipants','TotalCost'];
+      const values = fields.map(f => [f, txt(ptsc, f)]).filter(([,v]) => v);
+      const otherDesc = txt(deep(ptsc, 'Other'), 'Description');
+      const otherCost = txt(deep(ptsc, 'Other'), 'Cost');
+      if (values.length || otherCost) {
+        out += `<div class="section-head">Participant / Trainee Support</div><div class="kv-list">`;
+        for (const [k, v] of values) {
+          const isMoney = !/Number/.test(k);
+          out += kvRow(prettyName(k), isMoney ? money(v) : v, isMoney);
+        }
+        if (otherCost) out += kvRow(`Other${otherDesc ? ' (' + otherDesc + ')' : ''}`, money(otherCost), true);
+        out += `</div>`;
+      }
+    }
+
+    // Other Direct Costs
+    const odc = child(by, 'OtherDirectCosts');
+    if (odc) {
+      const items = [];
+      for (const c of odc.children) {
+        if (/^OtherDirectCost\d+$/.test(c.localName)) {
+          const desc = txt(c, 'Description');
+          const cost = txt(c, 'Cost');
+          if (desc || cost) items.push({ desc, cost });
+        }
+      }
+      if (items.length) {
+        out += `<div class="section-head">Other Direct Costs</div><table class="data-table">
+          <thead><tr><th>Description</th><th class="num">Cost</th></tr></thead><tbody>`;
+        for (const it of items) out += `<tr><td>${escapeHtml(it.desc)}</td><td class="num">${escapeHtml(money(it.cost))}</td></tr>`;
+        const totODC = txt(odc, 'TotalOtherDirectCost');
+        if (totODC) out += `<tr class="total"><td>Total</td><td class="num">${escapeHtml(money(totODC))}</td></tr>`;
+        out += `</tbody></table>`;
+      }
+    }
+
+    // Indirect Costs
+    const ic = child(by, 'IndirectCosts');
+    if (ic) {
+      const items = children(ic, 'IndirectCost').filter(it => txt(it, 'CostType') || txt(it, 'FundRequested') || txt(it, 'IndirectCostBase'));
+      if (items.length) {
+        out += `<div class="section-head">Indirect Costs</div><table class="data-table">
+          <thead><tr><th>Type</th><th class="num">Rate</th><th class="num">Base</th><th class="num">Requested</th></tr></thead><tbody>`;
+        for (const it of items) {
+          out += `<tr>
+            <td>${escapeHtml(txt(it, 'CostType'))}</td>
+            <td class="num">${escapeHtml(txt(it, 'IndirectCostRate'))}</td>
+            <td class="num">${escapeHtml(money(txt(it, 'IndirectCostBase')))}</td>
+            <td class="num">${escapeHtml(money(txt(it, 'FundRequested')))}</td>
+          </tr>`;
+        }
+        const totIC = txt(ic, 'TotalIndirectCosts');
+        if (totIC) out += `<tr class="total"><td colspan="3">Total indirect</td><td class="num">${escapeHtml(money(totIC))}</td></tr>`;
+        out += `</tbody></table>`;
+      }
+    }
+
+    // Bottom totals
+    if (directCosts || totalCosts || totalCostsFee) {
+      out += `<div class="section-head">Totals</div><div class="kv-list">`;
+      if (directCosts) out += kvRow('Direct', money(directCosts), true);
+      const totIC2 = txt(deep(by, 'IndirectCosts'), 'TotalIndirectCosts');
+      if (totIC2) out += kvRow('Indirect', money(totIC2), true);
+      if (totalCosts) out += kvRow('Total', money(totalCosts), true);
+      if (totalCostsFee && totalCostsFee !== totalCosts) out += kvRow('Total + Fee', money(totalCostsFee), true);
+      out += `</div>`;
+    }
+
+    // Budget Justification — inline preview
+    const bja = child(root, 'BudgetJustificationAttachment');
+    const bjaName = txt(bja, 'FileName');
+    if (bjaName) {
+      out += `<div class="section-head">Budget Justification</div>`;
+      out += inlinePdfBlock(bjaName);
+    }
+
+    return out;
+  }
+
+  function summaryCell(label, value, big = '') {
+    return `<div class="cell"><span class="label">${escapeHtml(label)}</span><span class="value ${big}">${escapeHtml(value)}</span></div>`;
+  }
+  function kvRow(k, v, isMoney) {
+    return `<div class="row"><div class="k">${escapeHtml(k)}</div><div class="v ${isMoney ? 'money' : ''}">${escapeHtml(v)}</div></div>`;
+  }
+
+  // =================================================================
+  // RR Key Personnel renderer
+  // =================================================================
+  function renderKeyPersonForm(root) {
+    let out = '';
+    // Each top-level child is a profile holder (PDPI, KeyPerson, etc.)
+    for (const holder of root.children) {
+      const profile = child(holder, 'Profile');
+      if (!profile) continue;
+      const n = child(profile, 'Name');
+      const fn = txt(n, 'FirstName');
+      const mn = txt(n, 'MiddleName');
+      const ln = txt(n, 'LastName');
+      const fullName = [fn, mn, ln].filter(Boolean).join(' ');
+      const role = txt(profile, 'ProjectRole') || prettyName(holder.localName);
+      const email = txt(profile, 'Email');
+      const phone = txt(profile, 'Phone');
+      const dept = txt(profile, 'Department');
+      const div = txt(profile, 'Division');
+      const orgName = txt(profile, 'OrganizationName');
+      const addr = child(profile, 'Address');
+      const addressLine = addr ? [
+        txt(addr, 'Street1'), txt(addr, 'Street2'),
+        txt(addr, 'City'),
+        txt(addr, 'State'),
+        txt(addr, 'ZipPostalCode'),
+        txt(addr, 'Country'),
+      ].filter(Boolean).join(', ') : '';
+
+      out += `<div class="person">
+        <div class="who">${escapeHtml(fullName || prettyName(holder.localName))}</div>
+        ${role ? `<div class="role">${escapeHtml(role)}</div>` : ''}
+      </div>
+      <div class="kv-list">`;
+      if (orgName) out += kvRow('Org', orgName, false);
+      if (dept) out += kvRow('Dept', dept, false);
+      if (div) out += kvRow('Division', div, false);
+      if (email) out += kvRow('Email', email, false);
+      if (phone) out += kvRow('Phone', phone, false);
+      if (addressLine) out += kvRow('Address', addressLine, false);
+      out += `</div>`;
+
+      // Attached PDFs
+      const bioFiles = Array.from(profile.getElementsByTagName('*')).filter(e => e.localName === 'BioSketchAttached');
+      const supFiles = Array.from(profile.getElementsByTagName('*')).filter(e => e.localName === 'SupportAttached');
+      const otherFiles = Array.from(profile.getElementsByTagName('*')).filter(e =>
+        e.localName === 'AttachedFile' && e.parentNode && e.parentNode.localName !== 'BioSketchsAttached' && e.parentNode.localName !== 'SupportsAttached');
+
+      const filesHtml = (label, arr) => {
+        if (!arr.length) return '';
+        return arr.map(f => {
+          const fname = txt(f, 'FileName');
+          if (!fname) return '';
+          return `<div class="section-head">${escapeHtml(label)}</div>` + inlinePdfBlock(fname);
+        }).join('');
+      };
+      out += filesHtml('Biographical Sketch', bioFiles);
+      out += filesHtml('Current & Pending Support', supFiles);
+      out += filesHtml('Other Attachment', otherFiles);
+    }
+    if (!out) out = '<div class="info-block">No profiles found.</div>';
+    return out;
+  }
+
+  function renderNode(el, isRoot = false) {
+    let html = '';
+    let fieldCount = 0;
+    const children = Array.from(el.children);
+
+    if (children.length === 0) {
+      // Leaf — text content
+      const text = (el.textContent || '').trim();
+      if (text) {
+        fieldCount = 1;
+        const cls = classifyValue(el.localName, text);
+        const display = cls === 'long'
+          ? `<div class="v long">${escapeHtml(text)}</div>`
+          : `<div class="v ${cls}">${escapeHtml(formatValue(text, cls))}</div>`;
+        html = `<div class="row"><div class="k">${prettyName(el.localName)}</div>${display}</div>`;
+      }
+      return { html, fieldCount };
+    }
+
+    // Group of children
+    let inner = '';
+    for (const child of children) {
+      // Skip attachment leaves — they're shown in attachments panel
+      if (child.localName === 'AttachedFile' ||
+          child.localName === 'BudgetJustificationAttachment' ||
+          (child.namespaceURI && child.namespaceURI.includes('Attachments'))) {
+        // Still recurse for FileName text but mark
+        const sub = renderNode(child);
+        if (sub.html) {
+          inner += sub.html;
+          fieldCount += sub.fieldCount;
+        }
+        continue;
+      }
+      const sub = renderNode(child);
+      if (sub.html) {
+        inner += sub.html;
+        fieldCount += sub.fieldCount;
+      }
+    }
+
+    if (!inner) return { html: '', fieldCount: 0 };
+
+    if (isRoot) {
+      html = inner;
+    } else {
+      html = `<div class="group"><div class="group-name">${prettyName(el.localName)}</div>${inner}</div>`;
+    }
+    return { html, fieldCount };
+  }
+
+  function prettyName(name) {
+    // Insert spaces between camelCase and after numbers
+    return name
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+      .replace(/_/g, ' ');
+  }
+
+  function classifyValue(name, value) {
+    if (!value) return 'empty';
+    const moneyNames = /Salary|Cost|Fund|Compensation|Benefits|Stipend|Tuition|Subsistence|TotalFee?$|Costs$|Base$/i;
+    if (moneyNames.test(name) && /^-?\d/.test(value) && value.length < 16) return 'money';
+    if (value.length > 80 || value.includes('\n')) return 'long';
+    return '';
+  }
+
+  function formatValue(v, cls) {
+    if (cls === 'money' && /^-?\d+(\.\d+)?$/.test(v)) {
+      const n = Number(v);
+      return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    }
+    return v;
+  }
+
+  // =================================================================
+  // Attachment extraction
+  // =================================================================
+  function collectAttachments() {
+    const out = [];
+    out.push(...extractEmbeddedFiles());
+    out.push(...extractFileAttachmentAnnots());
+    if (state.datasetsXml) out.push(...extractInlineXfaAttachments(state.datasetsXml));
+    const seen = new Set();
+    return out.filter(a => {
+      const key = `${a.name}|${a.bytes ? a.bytes.length : 0}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function extractEmbeddedFiles() {
+    const out = [];
+    try {
+      const ctx = state.pdflibDoc.context;
+      const root = ctx.lookup(ctx.trailerInfo.Root);
+      const names = root.lookup ? root.lookup(PDFLib.PDFName.of('Names')) : null;
+      if (!names || !names.lookup) return out;
+      const ef = names.lookup(PDFLib.PDFName.of('EmbeddedFiles'));
+      if (!ef) return out;
+      walkNameTree(ef, ctx, (key, fileSpecRef) => {
+        const fs = fileSpecRef instanceof PDFLib.PDFRef ? ctx.lookup(fileSpecRef) : fileSpecRef;
+        const file = readFileSpec(fs, ctx);
+        if (file) out.push({ ...file, source: 'EmbeddedFiles' });
+      });
+    } catch (e) { console.warn('embedded files extract failed', e); }
+    return out;
+  }
+
+  function walkNameTree(node, ctx, cb) {
+    if (!node || !node.lookup) return;
+    const namesEntry = node.lookup(PDFLib.PDFName.of('Names'));
+    if (namesEntry instanceof PDFLib.PDFArray) {
+      const arr = namesEntry.asArray();
+      for (let i = 0; i < arr.length; i += 2) {
+        const k = arr[i] instanceof PDFLib.PDFRef ? ctx.lookup(arr[i]) : arr[i];
+        const v = arr[i + 1];
+        cb(pdfStringValue(k), v);
+      }
+    }
+    const kids = node.lookup(PDFLib.PDFName.of('Kids'));
+    if (kids instanceof PDFLib.PDFArray) {
+      for (const kidRef of kids.asArray()) {
+        const kid = kidRef instanceof PDFLib.PDFRef ? ctx.lookup(kidRef) : kidRef;
+        walkNameTree(kid, ctx, cb);
+      }
+    }
+  }
+
+  function guessMime(name) {
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    return {
+      pdf: 'application/pdf', txt: 'text/plain', json: 'application/json',
+      xml: 'application/xml', zip: 'application/zip', doc: 'application/msword',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xls: 'application/vnd.ms-excel',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+    }[ext] || 'application/octet-stream';
+  }
+
+  function readFileSpec(fs, ctx) {
+    if (!fs || !fs.lookup) return null;
+    let name = '';
+    const uf = fs.lookup(PDFLib.PDFName.of('UF'));
+    const f = fs.lookup(PDFLib.PDFName.of('F'));
+    if (uf) name = pdfStringValue(uf);
+    else if (f) name = pdfStringValue(f);
+
+    const ef = fs.lookup(PDFLib.PDFName.of('EF'));
+    if (!ef || !ef.lookup) return null;
+    const fileStreamRef = ef.lookup(PDFLib.PDFName.of('UF')) || ef.lookup(PDFLib.PDFName.of('F'));
+    if (!fileStreamRef) return null;
+    const fileStream = fileStreamRef instanceof PDFLib.PDFRef ? ctx.lookup(fileStreamRef) : fileStreamRef;
+    const bytes = decodeStream(fileStream);
+    if (!bytes) return null;
+
+    let mimeType = 'application/octet-stream';
+    const subtype = fileStream.dict ? fileStream.dict.get(PDFLib.PDFName.of('Subtype')) : null;
+    if (subtype) {
+      mimeType = pdfStringValue(subtype).replace(/#2F/g, '/');
+    }
+    if (mimeType === 'application/octet-stream' && name) mimeType = guessMime(name);
+
+    return { name, bytes: new Uint8Array(bytes), mimeType };
+  }
+
+  function pdfStringValue(obj) {
+    if (!obj) return '';
+    if (typeof obj === 'string') return obj;
+    // PDFString has decodeText(), PDFName has .toString() returning "/Name"
+    if (typeof obj.decodeText === 'function') return obj.decodeText();
+    if (typeof obj.asString === 'function') return obj.asString();
+    if (obj instanceof PDFLib.PDFName) {
+      const s = obj.toString();
+      return s.startsWith('/') ? s.slice(1) : s;
+    }
+    return obj.toString().replace(/^\(|\)$/g, '');
+  }
+
+  function extractFileAttachmentAnnots() {
+    const out = [];
+    try {
+      const ctx = state.pdflibDoc.context;
+      const pages = state.pdflibDoc.getPages();
+      for (const page of pages) {
+        const annotsRef = page.node.get(PDFLib.PDFName.of('Annots'));
+        if (!annotsRef) continue;
+        const annots = annotsRef instanceof PDFLib.PDFArray ? annotsRef : ctx.lookup(annotsRef);
+        if (!(annots instanceof PDFLib.PDFArray)) continue;
+        for (const aref of annots.asArray()) {
+          const a = aref instanceof PDFLib.PDFRef ? ctx.lookup(aref) : aref;
+          if (!a || !a.lookup) continue;
+          const subtype = a.lookup(PDFLib.PDFName.of('Subtype'));
+          if (pdfStringValue(subtype) !== 'FileAttachment') continue;
+          const fs = a.lookup(PDFLib.PDFName.of('FS'));
+          const fsObj = fs instanceof PDFLib.PDFRef ? ctx.lookup(fs) : fs;
+          const file = readFileSpec(fsObj, ctx);
+          if (file) out.push({ ...file, source: 'Annotation' });
+        }
+      }
+    } catch (e) { console.warn('annot extraction failed', e); }
+    return out;
+  }
+
+  function extractInlineXfaAttachments(xmlStr) {
+    const out = [];
+    try {
+      const doc = new DOMParser().parseFromString(xmlStr, 'text/xml');
+      // Find any <att:FileLocation> with substantial text content (likely base64)
+      const all = doc.getElementsByTagName('*');
+      for (const el of all) {
+        if (el.localName !== 'FileLocation') continue;
+        const text = (el.textContent || '').trim();
+        if (text.length < 64) continue; // probably empty or just an href stub
+        // Need a sibling FileName
+        const parent = el.parentNode;
+        let fileName = '';
+        let mimeType = '';
+        for (const sib of parent.children) {
+          if (sib.localName === 'FileName') fileName = (sib.textContent || '').trim();
+          if (sib.localName === 'MimeType') mimeType = (sib.textContent || '').trim();
+        }
+        // Try base64 decode
+        try {
+          const cleaned = text.replace(/\s+/g, '');
+          if (!/^[A-Za-z0-9+/=]+$/.test(cleaned)) continue;
+          const bin = atob(cleaned);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          out.push({
+            name: fileName || 'attachment.bin',
+            mimeType: mimeType || 'application/octet-stream',
+            bytes,
+            source: 'XFA inline',
+          });
+        } catch (e) { /* not base64 */ }
+      }
+    } catch (e) { console.warn('inline xfa extraction failed', e); }
+    return out;
+  }
+
+  function renderAttachments(list) {
+    const container = $('attach-list');
+    container.innerHTML = '';
+    const remaining = list.filter(a => !state.claimedAttachments.has(a.name));
+    $('attach-count').textContent = String(remaining.length);
+    if (list.length === 0) {
+      $('attach-section').style.display = '';
+      container.innerHTML = '<div class="info-block">No embedded files found.</div>';
+      return;
+    }
+    if (remaining.length === 0) {
+      // All attachments are inlined elsewhere — hide the redundant bottom section
+      $('attach-section').style.display = 'none';
+      return;
+    }
+    $('attach-section').style.display = '';
+    remaining.forEach((a) => {
+      const sizeKb = (a.bytes.length / 1024).toFixed(1);
+      const card = document.createElement('div');
+      card.className = 'attach-card';
+      const isPdf = a.mimeType === 'application/pdf' || a.name.toLowerCase().endsWith('.pdf');
+
+      const head = document.createElement('div');
+      head.className = 'head';
+      head.innerHTML = `
+        <div class="name">${escapeHtml(a.name)}</div>
+        <div class="meta">${escapeHtml(a.mimeType)} · ${sizeKb} KB · ${escapeHtml(a.source)}</div>
+      `;
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'secondary small toggle';
+      toggleBtn.textContent = isPdf ? 'Hide preview' : 'Open in new tab';
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'small save';
+      saveBtn.textContent = 'Save';
+      head.appendChild(toggleBtn);
+      head.appendChild(saveBtn);
+      card.appendChild(head);
+
+      saveBtn.addEventListener('click', () => saveAttachment(a));
+
+      if (isPdf) {
+        const blob = new Blob([a.bytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const iframe = document.createElement('iframe');
+        iframe.className = 'preview-frame';
+        iframe.src = url;
+        iframe.title = a.name;
+        card.appendChild(iframe);
+        toggleBtn.addEventListener('click', () => {
+          card.classList.toggle('collapsed');
+          toggleBtn.textContent = card.classList.contains('collapsed') ? 'Show preview' : 'Hide preview';
+        });
+      } else {
+        toggleBtn.addEventListener('click', () => {
+          const blob = new Blob([a.bytes], { type: a.mimeType || 'application/octet-stream' });
+          const url = URL.createObjectURL(blob);
+          window.open(url, '_blank');
+        });
+      }
+
+      container.appendChild(card);
+    });
+  }
+
+  function saveAttachment(a) {
+    const blob = new Blob([a.bytes], { type: a.mimeType || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = a.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // =================================================================
+  // Helpers
+  // =================================================================
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // =================================================================
+  // Boot
+  // =================================================================
+  setupTheme();
+  setupDropZone();
+  setupReset();
+</script>
+
+</body>
+</html>
