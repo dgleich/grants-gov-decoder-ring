@@ -163,27 +163,30 @@
   }
   .drop-zone-big {
     border: 1px dashed var(--rule);
-    padding: 30px 18px;
+    padding: 26px 18px;
     text-align: center;
     cursor: pointer;
-    background: var(--bg-panel);
-    transition: border-color 0.15s ease, background 0.15s ease;
+    background: transparent;
+    transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
     margin: 0 auto 36px;
     max-width: 600px;
     display: block;
   }
-  .drop-zone-big:hover, .drop-zone-big.dragover {
+  .drop-zone-big:hover { border-color: var(--ink-soft); }
+  /* Active state — only when a real file drag enters the page */
+  body.dragging .drop-zone-big {
+    border-style: solid;
     border-color: var(--accent);
     background: var(--accent-soft);
     color: var(--accent);
   }
-  /* Children mustn't fire dragenter/dragleave — keeps the highlight stable */
-  .drop-zone-big * { pointer-events: none; }
-  .drop-zone-big .arrow {
-    font-size: 18px;
-    margin-bottom: 6px;
-    letter-spacing: 0.4em;
+  /* Dim non-drop content during a page-wide drag to direct attention */
+  body.dragging .faq, body.dragging .banner, body.dragging .banner-rule, body.dragging .tagline {
+    opacity: 0.35;
+    transition: opacity 0.12s ease;
   }
+  /* Children mustn't fire dragenter/dragleave — keeps highlight stable */
+  .drop-zone-big * { pointer-events: none; }
   .drop-zone-big .label {
     font-size: 13px;
     font-weight: 600;
@@ -193,7 +196,7 @@
   .drop-zone-big .hint {
     font-size: 11px;
     color: var(--ink-faint);
-    margin-top: 6px;
+    margin-top: 4px;
     letter-spacing: 0.04em;
   }
 
@@ -726,9 +729,8 @@
     <p class="tagline">For the PDFs Acrobat reads and Preview won't. <span class="caret">▮</span></p>
 
     <label for="file-input" class="drop-zone-big" id="drop-zone">
-      <div class="arrow">↓ ↓ ↓</div>
-      <div class="label">Drop PDF here · or click</div>
-      <div class="hint">file stays in your browser; nothing uploaded</div>
+      <div class="label">Drop a PDF here · or click to choose</div>
+      <div class="hint">file stays in your browser — nothing uploaded</div>
     </label>
     <input type="file" id="file-input" accept="application/pdf,.pdf" style="display:none">
 
@@ -884,23 +886,32 @@
     fi.addEventListener('change', (e) => {
       if (e.target.files[0]) handleFile(e.target.files[0]);
     });
-    // Body-level drag-and-drop so any spot on the page accepts the file
-    ['dragenter', 'dragover'].forEach(ev =>
-      document.addEventListener(ev, (e) => { e.preventDefault(); }));
+    // Page-wide drag handling. Counter avoids flicker as drag moves between
+    // child elements — every dragenter pairs with a dragleave.
+    let dragDepth = 0;
+    const isFileDrag = (e) => {
+      const t = e.dataTransfer && e.dataTransfer.types;
+      return t && (Array.from(t).includes('Files') || t.contains?.('Files'));
+    };
+    document.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      if (!isFileDrag(e)) return;
+      dragDepth++;
+      document.body.classList.add('dragging');
+    });
+    document.addEventListener('dragover', (e) => { e.preventDefault(); });
+    document.addEventListener('dragleave', (e) => {
+      if (!isFileDrag(e)) return;
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) document.body.classList.remove('dragging');
+    });
     document.addEventListener('drop', (e) => {
       e.preventDefault();
-      const f = e.dataTransfer.files[0];
+      dragDepth = 0;
+      document.body.classList.remove('dragging');
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
       if (f) handleFile(f);
     });
-    // Visual hover on the actual drop zones
-    for (const id of ['drop-zone', 'drop-zone-mini']) {
-      const dz = $(id);
-      if (!dz) continue;
-      ['dragenter', 'dragover'].forEach(ev =>
-        dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add('dragover'); }));
-      ['dragleave', 'drop'].forEach(ev =>
-        dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove('dragover'); }));
-    }
   }
 
   function setupTheme() {

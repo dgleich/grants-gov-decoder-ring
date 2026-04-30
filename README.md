@@ -3,7 +3,7 @@
 A single-file, browser-only viewer for Federal grant PDFs that ordinary
 PDF readers refuse to open.
 
-→ **Live page:** _(GitHub Pages URL once enabled)_
+→ **Live page:** https://dgleich.github.io/grants-gov-decoder-ring/
 
 ## What's the problem?
 
