@@ -1,4 +1,8 @@
-_Human note from David_ Usually Claude tags itself. Anyway, it wrote all of this! See my [post](https://blog.dgleich.com/2026/04/29/revenge-on-unreadable-grantsgov-pdf.html) for what I did! 
+_Human note from David_    
+Usually Claude tags itself. It did not here!  Anyway, it wrote all of this! See my [post](https://blog.dgleich.com/2026/04/29/revenge-on-unreadable-grantsgov-pdf.html) for what I did!      
+_End human_ 
+
+_Resume human_ End human is such a funny tag in an AI world! _End human_ 
 
 # Grants.Gov PDF Secret Decoder Ring
 
