@@ -1,3 +1,5 @@
+_Human note from David_ Usually Claude tags itself. Anyway, it wrote all of this! See my [post](https://blog.dgleich.com/2026/04/29/revenge-on-unreadable-grantsgov-pdf.html) for what I did! 
+
 # Grants.Gov PDF Secret Decoder Ring
 
 A single-file, browser-only viewer for Federal grant PDFs that ordinary
